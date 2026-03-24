@@ -1,5 +1,11 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -40,20 +46,23 @@ export function ControlsPanel({
           Simulation Controls
         </CardTitle>
         <CardDescription>
-          Start, pause, restart, and configure the simulation speed and number of operators.
+          Start, pause, restart, and configure the simulation speed and number of
+          operators.
         </CardDescription>
       </CardHeader>
 
       <CardContent className="space-y-5">
-        <div className="rounded-2xl bg-slate-900 p-6 text-center text-white">
-          <div className="text-sm uppercase tracking-[0.2em] text-slate-300">Timer</div>
+        <div className="rounded-3xl bg-slate-950 p-6 text-center text-white shadow-inner">
+          <div className="text-sm uppercase tracking-[0.2em] text-slate-400">
+            Timer
+          </div>
           <div className="mt-2 text-5xl font-bold tracking-widest">
             {formatTime(currentTime)}
           </div>
         </div>
 
         <div className="grid grid-cols-3 gap-2">
-          <Button onClick={onStart} className="gap-2">
+          <Button onClick={onStart} className="gap-2 rounded-xl">
             <Play className="h-4 w-4" />
             Start
           </Button>
@@ -61,12 +70,12 @@ export function ControlsPanel({
             variant="secondary"
             onClick={onPause}
             disabled={simulationState !== "running"}
-            className="gap-2"
+            className="gap-2 rounded-xl"
           >
             <Pause className="h-4 w-4" />
             Pause
           </Button>
-          <Button variant="outline" onClick={onReset} className="gap-2">
+          <Button variant="outline" onClick={onReset} className="gap-2 rounded-xl">
             <RotateCcw className="h-4 w-4" />
             Restart
           </Button>

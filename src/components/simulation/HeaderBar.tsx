@@ -18,8 +18,9 @@ export function HeaderBar({
           Queue Simulation Classroom Dashboard
         </h1>
         <p className="text-sm text-slate-600">
-          Visualize arrivals, queue buildup, operator service, and waiting-time
-          records in real time.
+          Run a live classroom queuing simulation with visual queue flow,
+          operator service, dice-based service time, and automatic data
+          collection.
         </p>
       </div>
 

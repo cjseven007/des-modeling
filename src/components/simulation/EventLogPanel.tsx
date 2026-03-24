@@ -1,4 +1,10 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 type EventLogPanelProps = {
@@ -10,7 +16,7 @@ export function EventLogPanel({ eventLog }: EventLogPanelProps) {
     <Card className="shadow-sm">
       <CardHeader>
         <CardTitle className="text-lg">Event Log</CardTitle>
-        <CardDescription>Helps narrate the simulation during class.</CardDescription>
+        <CardDescription>Helps narrate the simulation while it runs.</CardDescription>
       </CardHeader>
 
       <CardContent>

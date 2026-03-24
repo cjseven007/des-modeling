@@ -1,25 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { DEFAULT_CUSTOMERS, formatTime, rollDice } from "@/lib/simulation-utils";
+import {
+  DEFAULT_CUSTOMERS,
+  createCustomer,
+  createOperators,
+  formatTime,
+  getNextCustomerId,
+  resetCustomerForNewRun,
+  rollDice,
+} from "@/lib/simulation-utils";
 import type { Customer, Operator, SimulationState } from "@/types/simulation";
 import { HeaderBar } from "@/components/simulation/HeaderBar";
-import { CustomerPanel } from "@/components/simulation/CustomerPanel";
+import { CustomerConfigDialog } from "@/components/simulation/CustomerConfigDialog";
 import { LiveQueueSystem } from "@/components/simulation/LiveQueueSystem";
 import { DataTablePanel } from "@/components/simulation/DataTablePanel";
 import { ControlsPanel } from "@/components/simulation/ControlsPanel";
 import { SummaryPanel } from "@/components/simulation/SummaryPanel";
 import { EventLogPanel } from "@/components/simulation/EventLogPanel";
-import { ClassroomTipsPanel } from "@/components/simulation/ClassroomTipsPanel";
-
-function createOperators(count: number): Operator[] {
-  return Array.from({ length: count }, (_, index) => ({
-    id: index + 1,
-    currentCustomerId: null,
-    busyUntil: null,
-  }));
-}
+// import { ClassroomTipsPanel } from "@/components/simulation/ClassroomTipsPanel";
 
 export default function QueueSimulationDashboard() {
-  const [simulationState, setSimulationState] = useState<SimulationState>("idle");
+  const [simulationState, setSimulationState] =
+    useState<SimulationState>("idle");
   const [currentTime, setCurrentTime] = useState(0);
   const [operatorsCount, setOperatorsCount] = useState(2);
   const [tickMs, setTickMs] = useState(1000);
@@ -30,7 +31,11 @@ export default function QueueSimulationDashboard() {
   const [eventLog, setEventLog] = useState<string[]>([
     "Simulation ready. Press Start Simulation to begin.",
   ]);
-  const [pendingRollOperatorId, setPendingRollOperatorId] = useState<number | null>(null);
+  const [pendingRollOperatorId, setPendingRollOperatorId] = useState<number | null>(
+    null
+  );
+  const [rollingDice, setRollingDice] = useState(false);
+  const [maxQueueLength, setMaxQueueLength] = useState(0);
 
   const intervalRef = useRef<number | null>(null);
   const customersRef = useRef<Customer[]>(customers);
@@ -90,7 +95,9 @@ export default function QueueSimulationDashboard() {
       : 0;
 
     const avgService = serviceTimes.length
-      ? Math.round(serviceTimes.reduce((sum, value) => sum + value, 0) / serviceTimes.length)
+      ? Math.round(
+          serviceTimes.reduce((sum, value) => sum + value, 0) / serviceTimes.length
+        )
       : 0;
 
     return {
@@ -100,13 +107,15 @@ export default function QueueSimulationDashboard() {
       queueLength: queue.length,
       activeCount: activeServices.length,
       maxArrival: Math.max(...customers.map((customer) => customer.arrivalSeconds), 0),
+      maxQueueLength,
     };
-  }, [customers, queue.length, activeServices.length]);
+  }, [customers, queue.length, activeServices.length, maxQueueLength]);
 
   useEffect(() => {
     if (simulationState === "idle") {
       setOperators(createOperators(operatorsCount));
       setPendingRollOperatorId(null);
+      setRollingDice(false);
     }
   }, [operatorsCount, simulationState]);
 
@@ -188,7 +197,6 @@ export default function QueueSimulationDashboard() {
         selectedCustomer.status = "serving";
         selectedCustomer.serviceStartAt = currentTime;
         selectedCustomer.operatorId = freeOperator.id;
-
         freeOperator.currentCustomerId = selectedCustomer.id;
 
         logEntries.push(
@@ -199,11 +207,17 @@ export default function QueueSimulationDashboard() {
       }
     }
 
+    const currentQueueLength = currentCustomers.filter(
+      (customer) => customer.status === "queued"
+    ).length;
+
+    setMaxQueueLength((prev) => Math.max(prev, currentQueueLength));
+
     setCustomers(currentCustomers);
     setOperators(currentOperators);
 
     if (logEntries.length > 0) {
-      setEventLog((prev) => [...logEntries.reverse(), ...prev].slice(0, 14));
+      setEventLog((prev) => [...logEntries.reverse(), ...prev].slice(0, 16));
     }
   }, [currentTime, simulationState]);
 
@@ -217,25 +231,21 @@ export default function QueueSimulationDashboard() {
 
     if (allCompleted) {
       setSimulationState("completed");
-      setEventLog((prev) => [`${formatTime(currentTime)} — Simulation completed.`, ...prev]);
+      setEventLog((prev) => [
+        `${formatTime(currentTime)} — Simulation completed.`,
+        ...prev,
+      ]);
     }
   }, [customers, currentTime, pendingRollOperatorId, simulationState]);
 
   const resetSimulationData = (nextState: SimulationState) => {
     setCurrentTime(0);
-    setCustomers(customers.map((customer) => ({
-      ...customer,
-      status: "upcoming",
-      queuedAt: null,
-      serviceStartAt: null,
-      serviceEndAt: null,
-      operatorId: null,
-      diceValue: null,
-      serviceDuration: null,
-    })));
+    setCustomers((prev) => prev.map((customer) => resetCustomerForNewRun(customer)));
     setOperators(createOperators(operatorsCount));
     setPendingRollOperatorId(null);
+    setRollingDice(false);
     setSimulationState(nextState);
+    setMaxQueueLength(0);
   };
 
   const startSimulation = () => {
@@ -247,14 +257,14 @@ export default function QueueSimulationDashboard() {
 
     setSimulationState("running");
     setEventLog((prev) =>
-      [`${formatTime(currentTime)} — Simulation resumed.`, ...prev].slice(0, 14)
+      [`${formatTime(currentTime)} — Simulation resumed.`, ...prev].slice(0, 16)
     );
   };
 
   const pauseSimulation = () => {
     setSimulationState("paused");
     setEventLog((prev) =>
-      [`${formatTime(currentTime)} — Simulation paused.`, ...prev].slice(0, 14)
+      [`${formatTime(currentTime)} — Simulation paused.`, ...prev].slice(0, 16)
     );
   };
 
@@ -264,39 +274,52 @@ export default function QueueSimulationDashboard() {
   };
 
   const handleRollDice = () => {
-    if (pendingRollOperatorId === null) return;
+    if (pendingRollOperatorId === null || rollingDice) return;
 
-    const value = rollDice();
-    const serviceDuration = value * 10;
+    setRollingDice(true);
 
-    const nextCustomers = customers.map((customer) => ({ ...customer }));
-    const nextOperators = operators.map((operator) => ({ ...operator }));
+    window.setTimeout(() => {
+      const value = rollDice();
+      const serviceDuration = value * 10;
 
-    const servingOperator = nextOperators.find(
-      (operator) => operator.id === pendingRollOperatorId
-    );
-    if (!servingOperator?.currentCustomerId) return;
+      const nextCustomers = customersRef.current.map((customer) => ({ ...customer }));
+      const nextOperators = operatorsRef.current.map((operator) => ({ ...operator }));
 
-    const currentCustomer = nextCustomers.find(
-      (customer) => customer.id === servingOperator.currentCustomerId
-    );
-    if (!currentCustomer) return;
+      const servingOperator = nextOperators.find(
+        (operator) => operator.id === pendingRollOperatorId
+      );
 
-    currentCustomer.diceValue = value;
-    currentCustomer.serviceDuration = serviceDuration;
-    servingOperator.busyUntil = currentTime + serviceDuration;
+      if (!servingOperator?.currentCustomerId) {
+        setRollingDice(false);
+        return;
+      }
 
-    setCustomers(nextCustomers);
-    setOperators(nextOperators);
+      const currentCustomer = nextCustomers.find(
+        (customer) => customer.id === servingOperator.currentCustomerId
+      );
 
-    setEventLog((prev) =>
-      [
-        `${formatTime(currentTime)} — Operator ${pendingRollOperatorId} rolled ${value}. ${currentCustomer.name} will be served for ${serviceDuration}s.`,
-        ...prev,
-      ].slice(0, 14)
-    );
+      if (!currentCustomer) {
+        setRollingDice(false);
+        return;
+      }
 
-    setPendingRollOperatorId(null);
+      currentCustomer.diceValue = value;
+      currentCustomer.serviceDuration = serviceDuration;
+      servingOperator.busyUntil = currentTime + serviceDuration;
+
+      setCustomers(nextCustomers);
+      setOperators(nextOperators);
+
+      setEventLog((prev) =>
+        [
+          `${formatTime(currentTime)} — Operator ${pendingRollOperatorId} rolled ${value}. ${currentCustomer.name} will be served for ${serviceDuration}s.`,
+          ...prev,
+        ].slice(0, 16)
+      );
+
+      setPendingRollOperatorId(null);
+      setRollingDice(false);
+    }, 1200);
   };
 
   const updateArrivalTime = (id: string, value: string) => {
@@ -316,25 +339,44 @@ export default function QueueSimulationDashboard() {
     );
   };
 
+  const addCustomer = () => {
+    if (simulationState !== "idle") return;
+
+    setCustomers((prev) => {
+      const nextId = getNextCustomerId(prev);
+      const lastArrival =
+        prev.length > 0 ? Math.max(...prev.map((c) => c.arrivalSeconds)) : 0;
+      return [...prev, createCustomer(nextId, lastArrival + 10)];
+    });
+  };
+
+  const removeCustomer = (id: string) => {
+    if (simulationState !== "idle") return;
+    setCustomers((prev) => prev.filter((customer) => customer.id !== id));
+  };
+
   const isConfigLocked =
     simulationState === "running" ||
     simulationState === "paused" ||
     simulationState === "completed";
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 text-slate-900 md:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-slate-100 p-4 text-slate-900 md:p-6">
       <div className="mx-auto max-w-7xl space-y-6">
         <HeaderBar simulationState={simulationState} currentTime={currentTime} />
 
-        <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)_340px] xl:items-start">
-          <div className="min-w-0">
-            <CustomerPanel
-              customers={customers}
-              isConfigLocked={isConfigLocked}
-              onUpdateArrivalTime={updateArrivalTime}
-            />
-          </div>
+        <div className="flex items-center justify-between gap-3">
 
+          <CustomerConfigDialog
+            customers={customers}
+            isConfigLocked={isConfigLocked}
+            onUpdateArrivalTime={updateArrivalTime}
+            onAddCustomer={addCustomer}
+            onRemoveCustomer={removeCustomer}
+          />
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
           <div className="min-w-0 space-y-6">
             <LiveQueueSystem
               upcomingCustomers={upcomingCustomers}
@@ -345,6 +387,7 @@ export default function QueueSimulationDashboard() {
               pendingRollOperatorId={pendingRollOperatorId}
               currentTime={currentTime}
               onRollDice={handleRollDice}
+              rollingDice={rollingDice}
             />
             <DataTablePanel customers={customers} />
           </div>
@@ -364,7 +407,7 @@ export default function QueueSimulationDashboard() {
             />
             <SummaryPanel metrics={metrics} />
             <EventLogPanel eventLog={eventLog} />
-            <ClassroomTipsPanel />
+            {/* <ClassroomTipsPanel /> */}
           </div>
         </div>
       </div>

@@ -12,11 +12,17 @@ export function ClassroomTipsPanel() {
       </CardHeader>
 
       <CardContent className="space-y-2 text-sm text-slate-600">
-        <p>Use a projector so everyone can see the queue forming in real time.</p>
-        <p>Set arrivals close together to force a bottleneck and make the queue visible.</p>
         <p>
-          Pause after a few events to explain why waiting time increases when demand
-          exceeds capacity.
+          Use a projector so everyone can clearly see the queue and operator
+          service area.
+        </p>
+        <p>
+          Make arrivals closer together to create a bottleneck and show queue
+          buildup.
+        </p>
+        <p>
+          Pause the simulation to explain how random service times affect waiting
+          time.
         </p>
       </CardContent>
     </Card>
