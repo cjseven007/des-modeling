@@ -15,10 +15,10 @@ export function HeaderBar({
     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">
-          Queue Simulation Classroom Dashboard
+          Bank Queue Simulation
         </h1>
         <p className="text-sm text-slate-600">
-          Run a live classroom queuing simulation with visual queue flow,
+          Live bank queue simulation with visual queue flow,
           operator service, dice-based service time, and automatic data
           collection.
         </p>
