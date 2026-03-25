@@ -80,5 +80,5 @@ export const DEFAULT_CUSTOMERS: Customer[] = [
   createCustomer("F", 62),
   createCustomer("G", 75),
   createCustomer("H", 82),
-  createCustomer("I", 90),
+  // createCustomer("I", 90),
 ];
